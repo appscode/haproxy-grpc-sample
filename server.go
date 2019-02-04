@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -11,7 +12,7 @@ import (
 	"time"
 
 	// The Protobuf generated file
-	creator "app/codenamecreator"
+	creator "github.com/appscode/haproxy-grpc-sample/codenamecreator"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -106,20 +107,28 @@ func (s *codenameServer) KeepGettingCodenames(stream creator.CodenameCreator_Kee
 
 func main() {
 	address := ":3000"
-	crt := "server.crt"
-	key := "server.key"
+
+	crt := flag.String("crt", "", "path to cert file")
+	key := flag.String("key", "", "path to key file")
+	flag.Parse()
+
+	log.Println(*crt, *key)
 
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	creds, err := credentials.NewServerTLSFromFile(crt, key)
-	if err != nil {
-		log.Fatalf("Failed to load TLS keys")
+	grpcServer := grpc.NewServer()
+
+	if len(*crt) > 0 && len(*key) > 0 {
+		creds, err := credentials.NewServerTLSFromFile(*crt, *key)
+		if err != nil {
+			log.Fatalf("Failed to load TLS keys")
+		}
+		grpcServer = grpc.NewServer(grpc.Creds(creds))
 	}
 
-	grpcServer := grpc.NewServer(grpc.Creds(creds))
 	creator.RegisterCodenameCreatorServer(grpcServer, &codenameServer{})
 
 	log.Println("Listening on address ", address)
